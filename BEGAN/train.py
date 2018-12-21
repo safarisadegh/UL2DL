@@ -9,7 +9,7 @@ import scipy.io as sio
 
 
 def load_dataset():
-    hdict = sio.loadmat('data/my_spec_ETU.mat')
+    hdict = sio.loadmat('../data/my_spec_ETU.mat')
 
     h = hdict['my_spec_ETU']
 
@@ -49,6 +49,9 @@ def save_image(Test_result, epoch, batch_number):
     out = 1.0j * np.squeeze(tmp_image[:, :, :, 1])
     out += np.squeeze(tmp_image[:, :, :, 0])
     Input_image_recon = out
+
+    if not os.path.isdir('images'):
+        os.makedirs('images')
 
     sio.savemat('images/Results_' + str(epoch + 1) +
                 '_batch' + str(batch_number + 1) + '.mat', {'etu_generated_images': generated_images,

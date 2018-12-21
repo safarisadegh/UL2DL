@@ -141,7 +141,7 @@ def train_csi():
     """Test the convolutional network using csi samples."""
     # %%
     # load CSI dataset with 40K samples
-    hdict = sio.loadmat('data/My_perfect_H_12.mat')
+    hdict = sio.loadmat('../data/My_perfect_H_12.mat')
     h = hdict['My_perfect_H']
 
     # uplink channel as input
