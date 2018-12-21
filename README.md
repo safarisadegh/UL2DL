@@ -1,6 +1,6 @@
 # Deep UL2DL
 ## Source code of:
-Deep UL2DL: Channel Knowledge Tranfer from Uplink to Downlink
+Deep UL2DL: Channel Knowledge Tranfer from Uplink to Downlink https://arxiv.org/abs/1812.07518
 
 ## Abstract
 
