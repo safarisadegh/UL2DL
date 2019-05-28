@@ -1,4 +1,4 @@
-"""@Author: Moahammad Sadegh Safari bt thanks to @Parag K. Mital
+"""@Author: Moahammad Sadegh Safari by thanks to @Parag K. Mital
 """
 import tensorflow as tf
 import numpy as np
@@ -58,7 +58,6 @@ def autoencoder(input_shape=[None, 36, 7, 2],
     layer_i = 0
     n_output = n_filters[1]
     n_input = current_input.get_shape().as_list()[3]
-    shapes.append(current_input.get_shape().as_list())
     W = tf.Variable(
         tf.random_uniform(dtype=tf.float32, shape=[
             filter_sizes[layer_i],
@@ -80,7 +79,6 @@ def autoencoder(input_shape=[None, 36, 7, 2],
 
     for layer_i, n_output in enumerate(n_filters[2:]):
         n_input = current_input.get_shape().as_list()[3]
-        shapes.append(current_input.get_shape().as_list())
         W = tf.Variable(
             tf.random_uniform(dtype=tf.float32, shape=[
                 filter_sizes[layer_i+1],
@@ -133,7 +131,7 @@ def autoencoder(input_shape=[None, 36, 7, 2],
     cost = tf.reduce_mean(tf.square(tf.subtract(output,Y)))
 
     # %%
-    return {'x': x, 'z': z, 'Y': Y, 'cost': cost, 'Y_pred':output}
+    return {'x': x, 'Y': Y, 'cost': cost, 'Y_pred':output}
 
 
 # %%
@@ -146,27 +144,38 @@ def train_csi():
 
     # uplink channel as input
     csi_ul = np.empty(shape=(35000, 36, 7, 2), dtype=np.float32)
-    csi_ul_test = np.empty(shape=(5000, 36, 7, 2), dtype=np.float32)
+    csi_ul_test = np.empty(shape=(4000, 36, 7, 2), dtype=np.float32)
+    csi_ul_val = np.empty(shape=(1000, 36, 7, 2), dtype=np.float32)
     csi_ul[:, :, :, 0] = np.real(h[:35000, :36, :7])
     csi_ul[:, :, :, 1] = np.imag(h[:35000, :36, :7])
-    csi_ul_test[:, :, :, 0] = np.real(h[35000:, :36, :7])
-    csi_ul_test[:, :, :, 1] = np.imag(h[35000:, :36, :7])
+    csi_ul_val[:, :, :, 0] = np.real(h[35000:36000, :36, :7])
+    csi_ul_val[:, :, :, 1] = np.imag(h[35000:36000, :36, :7])
+    csi_ul_test[:, :, :, 0] = np.real(h[36000:, :36, :7])
+    csi_ul_test[:, :, :, 1] = np.imag(h[36000:, :36, :7])
     mean_csi_ul = np.mean(csi_ul, axis=0)
 
     # downlink channel as output
     csi_dl = np.empty(shape=(35000, 36, 7, 2), dtype=np.float32)
-    csi_dl_test = np.empty(shape=(5000, 36, 7, 2), dtype=np.float32)
+    csi_dl_test = np.empty(shape=(4000, 36, 7, 2), dtype=np.float32)
+    csi_dl_val = np.empty(shape=(1000, 36, 7, 2), dtype=np.float32)
     csi_dl[:, :, :, 0] = np.real(h[:35000, 36:, 7:])
     csi_dl[:, :, :, 1] = np.imag(h[:35000, 36:, 7:])
-    csi_dl_test[:, :, :, 0] = np.real(h[35000:, 36:, 7:])
-    csi_dl_test[:, :, :, 1] = np.imag(h[35000:, 36:, 7:])
+    csi_dl_val[:, :, :, 0] = np.real(h[35000:36000, 36:, 7:])
+    csi_dl_val[:, :, :, 1] = np.imag(h[35000:36000, 36:, 7:])
+    csi_dl_test[:, :, :, 0] = np.real(h[36000:, 36:, 7:])
+    csi_dl_test[:, :, :, 1] = np.imag(h[36000:, 36:, 7:])
     mean_csi_dl = np.mean(csi_dl, axis=0)
 
     ae = autoencoder()
 
+    val_input = np.array([ul - mean_csi_ul for ul in csi_ul_val])
+    val_output = np.array([dl - mean_csi_dl for dl in csi_dl_val])
+    csi_ul_test = np.array([ul - mean_csi_ul for ul in csi_ul_test])
+    csi_dl_test = np.array([dl - mean_csi_dl for dl in csi_dl_test])
+
     # defining a placeholder for learning rate
     learning_rate = tf.placeholder(tf.float32, [], name='learning_rate')
-    star_learning_rate = 0.0001
+    star_learning_rate = 0.001
     op = tf.train.AdamOptimizer(learning_rate)
     optimizer = op.minimize(ae['cost'])
 
@@ -200,24 +209,39 @@ def train_csi():
         idxs = np.random.permutation(35000)
         for batch_i in range(n_batch):
             idxs_i = idxs[batch_i*batch_size: (batch_i+1)*batch_size]
+
+            # normalize dl and ul csi's
             inputs = np.array([ul - mean_csi_ul for ul in csi_ul[idxs_i]])
             labels = np.array([dl - mean_csi_dl for dl in csi_dl[idxs_i]])
             sess.run(optimizer, feed_dict={ae['x']: inputs, ae['Y']: labels, learning_rate: star_learning_rate})
 
-        print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: inputs, ae['Y']: labels}))
+        train_loss = sess.run(2*ae['cost'], feed_dict={ae['x']: inputs, ae['Y']: labels})
+        val_loss = sess.run(2*ae['cost'], feed_dict={ae['x']: val_input, ae['Y']: val_output})
+
+        print('epoch: ', epoch_i, ", train_loss: ", train_loss, ", val_loss: ", val_loss)
         if epoch_i % 5 == 1:
             saver.save(sess, checkpoint_dir + '/saved_model.ckpt')
-        if epoch_i % 20 == 19:
+        if epoch_i % 40 == 39:
             star_learning_rate = star_learning_rate/2
 
-    print('and finally the loss is:{}'.format(2*sess.run(ae['cost'], feed_dict={ae['x']:csi_ul_test})))
-    out_images = sess.run(ae['Y_pred'], feed_dict={ae['x']:csi_ul_test})
+    print('and finally the loss is:{}'.format(2*sess.run(ae['cost'],
+                                                         feed_dict={ae['x']: csi_ul_test, ae['Y']: csi_dl_test})))
+    out_images = sess.run(ae['Y_pred'], feed_dict={ae['x']: csi_ul_test})
+    out_images = np.array([dl + mean_csi_dl for dl in out_images])
     out = 1.0j*np.squeeze(out_images[:, :, :, 1])
     out += np.squeeze(out_images[:, :, :, 0])
 
+    inp_images = np.array([ul + mean_csi_ul for ul in csi_ul_test])
+    inp = 1.0j*np.squeeze(inp_images[:, :, :, 1])
+    inp += np.squeeze(inp_images[:, :, :, 0])
+
+    ground_truth_images = np.array([dl + mean_csi_dl for dl in csi_dl_test])
+    ground_truth = 1.0j*np.squeeze(ground_truth_images[:, :, :, 1])
+    ground_truth += np.squeeze(ground_truth_images[:, :, :, 0])
+
     if not os.path.isdir('images'):
         os.makedirs('images')
-    sio.savemat('images/recon_images.mat', {'h': out})
+    sio.savemat('images/recon_images.mat', {'prediction': out, 'input': inp, 'ground_truth': ground_truth})
     print(r'reconstructed images saved to images/recon_images.mat...')
 
 

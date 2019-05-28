@@ -10,8 +10,12 @@ import scipy.io as sio
 
 def load_dataset():
     hdict = sio.loadmat('../data/my_spec_ETU.mat')
-
     h = hdict['my_spec_ETU']
+
+    # if you use EVA dataset uncomment below lines and comment above lines
+
+    # hdict = sio.loadmat('../data/My_perfect_H_12.mat')
+    # h = hdict['My_perfect_H']
 
     # load 35K of 72*14 frames as input of BEGAN
     csi_ul = np.empty(shape=(35000, 72, 14, 2), dtype=np.float32)
