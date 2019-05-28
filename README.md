@@ -22,3 +22,6 @@ Knowledge of the channel state information (CSI) at the transmitter side is one 
 
 ## Datasets
 To access datasets contact us: msadeq.safari@gmail.com
+
+## Aknowledgement
+Thanks To https://github.com/JorgeCeja/began-tensorflow for BEGAN code
